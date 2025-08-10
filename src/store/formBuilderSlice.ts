@@ -30,7 +30,9 @@ const formBuilderSlice = createSlice({
       }
     },
     removeField: (state, action: PayloadAction<string>) => {
+      console.log('Removing field:', action.payload);
       if (state.currentForm) {
+        console.log('Removing field:', action.payload);
         state.currentForm.fields = state.currentForm.fields.filter(f => f.id !== action.payload);
       }
     },

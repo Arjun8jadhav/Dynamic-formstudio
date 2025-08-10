@@ -21,12 +21,11 @@ import {
   IconButton,
   Alert,
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, DragIndicator as DragIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { setCurrentForm, addField, updateField, removeField, saveForm } from '../store/formBuilderSlice';
 import { Form, FormField, FieldType, ValidationRule } from '../types';
 import FieldConfigDialog from '../components/FieldConfigDialog';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const CreateForm: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -49,8 +48,12 @@ const CreateForm: React.FC = () => {
   }, [dispatch, currentForm]);
 
   const handleAddField = () => {
+    // Ensure we're starting fresh
     setEditingField(null);
-    setShowFieldDialog(true);
+    // Small delay to ensure state is cleared before opening dialog
+    setTimeout(() => {
+      setShowFieldDialog(true);
+    }, 0);
   };
 
   const handleEditField = (field: FormField) => {
@@ -59,19 +62,39 @@ const CreateForm: React.FC = () => {
   };
 
   const handleDeleteField = (fieldId: string) => {
-    dispatch(removeField(fieldId));
+    if (currentForm) {
+      const updatedFields = currentForm.fields
+        .filter(f => f.id !== fieldId)
+        .map((field, index) => ({
+          ...field,
+          order: index
+        }));
+      dispatch(setCurrentForm({ ...currentForm, fields: updatedFields }));
+    }
   };
 
   const handleSaveField = (field: FormField) => {
-    if (editingField) {
-      dispatch(updateField({ id: editingField.id, updates: field }));
-    } else {
-      const newField: FormField = {
-        ...field,
-        id: Date.now().toString(),
-        order: currentForm?.fields.length || 0,
-      };
-      dispatch(addField(newField));
+    if (currentForm) {
+      if (editingField) {
+        // Update existing field
+        const updatedFields = currentForm.fields.map(f =>
+          f.id === field.id ? { ...field, order: f.order } : f
+        );
+        dispatch(updateField({ id: editingField.id, updates: field }));
+        dispatch(setCurrentForm({ ...currentForm, fields: updatedFields }));
+      } else {
+        // Add new field
+        const newField: FormField = {
+          ...field,
+          id: Date.now().toString(),
+          order: currentForm.fields.length,
+        };
+        dispatch(addField(newField));
+        dispatch(setCurrentForm({ 
+          ...currentForm, 
+          fields: [...currentForm.fields, newField] 
+        }));
+      }
     }
     setShowFieldDialog(false);
     setEditingField(null);
@@ -87,21 +110,6 @@ const CreateForm: React.FC = () => {
       setShowSaveDialog(false);
       setFormName('');
     }
-  };
-
-  const handleDragEnd = (result: any) => {
-    if (!result.destination || !currentForm) return;
-
-    const fields = Array.from(currentForm.fields);
-    const [reorderedField] = fields.splice(result.source.index, 1);
-    fields.splice(result.destination.index, 0, reorderedField);
-
-    // Update order numbers
-    fields.forEach((field, index) => {
-      field.order = index;
-    });
-
-    dispatch(setCurrentForm({ ...currentForm, fields }));
   };
 
   if (!currentForm) return null;
@@ -141,54 +149,36 @@ const CreateForm: React.FC = () => {
                   No fields added yet. Click "Add Field" to start building your form.
                 </Alert>
               ) : (
-                <DragDropContext onDragEnd={handleDragEnd}>
-                  <Droppable droppableId="fields">
-                    {(provided: any) => (
-                      <Box {...provided.droppableProps} ref={provided.innerRef}>
-                        {currentForm.fields.map((field, index) => (
-                          <Draggable key={field.id} draggableId={field.id} index={index}>
-                            {(provided: any) => (
-                              <Card
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                sx={{ mb: 2, p: 2 }}
-                              >
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Box {...provided.dragHandleProps}>
-                                    <DragIcon color="action" />
-                                  </Box>
-                                  <Box sx={{ flexGrow: 1 }}>
-                                    <Typography variant="subtitle1">
-                                      {field.label} ({field.type})
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                                      {field.required && <Chip label="Required" size="small" color="primary" />}
-                                      {field.isDerived && <Chip label="Derived" size="small" color="secondary" />}
-                                    </Box>
-                                  </Box>
-                                  <Button
-                                    size="small"
-                                    onClick={() => handleEditField(field)}
-                                  >
-                                    Edit
-                                  </Button>
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    onClick={() => handleDeleteField(field.id)}
-                                  >
-                                    <DeleteIcon />
-                                  </IconButton>
-                                </Box>
-                              </Card>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
+                <Box>
+                  {currentForm.fields.map((field, index) => (
+                    <Card key={field.id} sx={{ mb: 2, p: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ flexGrow: 1 }}>
+                          <Typography variant="subtitle1">
+                            {field.label} ({field.type})
+                          </Typography>
+                          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                            {field.required && <Chip label="Required" size="small" color="primary" />}
+                            {field.isDerived && <Chip label="Derived" size="small" color="secondary" />}
+                          </Box>
+                        </Box>
+                        <Button
+                          size="small"
+                          onClick={() => handleEditField(field)}
+                        >
+                          Edit
+                        </Button>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteField(field.id)}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
                       </Box>
-                    )}
-                  </Droppable>
-                </DragDropContext>
+                    </Card>
+                  ))}
+                </Box>
               )}
             </CardContent>
           </Card>

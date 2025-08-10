@@ -71,7 +71,50 @@ const FieldConfigDialog: React.FC<FieldConfigDialogProps> = ({
         options: [],
       });
     }
-  }, [field]);
+    // Reset validation rule and option inputs
+    setNewValidationRule({ type: 'required', message: '' });
+    setNewOption('');
+  }, [field, open]);
+
+  // Additional reset when dialog opens for new field
+  useEffect(() => {
+    if (open && !field) {
+      setFormData({
+        type: 'text',
+        label: '',
+        required: false,
+        defaultValue: '',
+        validationRules: [],
+        isDerived: false,
+        parentFields: [],
+        derivedFormula: '',
+        options: [],
+      });
+      setNewValidationRule({ type: 'required', message: '' });
+      setNewOption('');
+    }
+  }, [open, field]);
+
+  const resetForm = () => {
+    setFormData({
+      type: 'text',
+      label: '',
+      required: false,
+      defaultValue: '',
+      validationRules: [],
+      isDerived: false,
+      parentFields: [],
+      derivedFormula: '',
+      options: [],
+    });
+    setNewValidationRule({ type: 'required', message: '' });
+    setNewOption('');
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   const handleSave = () => {
     if (formData.label && formData.type) {
@@ -143,7 +186,7 @@ const FieldConfigDialog: React.FC<FieldConfigDialogProps> = ({
   const isFormValid = formData.label && formData.type;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>{field ? 'Edit Field' : 'Add New Field'}</DialogTitle>
       <DialogContent>
         <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -333,7 +376,7 @@ const FieldConfigDialog: React.FC<FieldConfigDialogProps> = ({
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={handleClose}>Cancel</Button>
         <Button onClick={handleSave} variant="contained" disabled={!isFormValid}>
           {field ? 'Update' : 'Add'} Field
         </Button>
